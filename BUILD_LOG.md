@@ -15,3 +15,10 @@ Append-only. Every error, surprise or wrong assumption during the build. Raw mat
 - Cause: I wrote `layout.tsx` using the generated `LayoutProps<"/">` type before ever running `next dev`/`next build`, so the type didn't exist yet. A standalone `typecheck` script (meant to run in CI or on a fresh clone without building first) can't depend on build output.
 - Fix: switched `RootLayout`'s prop type to plain `{ children: React.ReactNode }`, which needs no generated types and works identically at runtime.
 - Commit: (rolled into the scaffold commit)
+
+### `prisma migrate dev` did not regenerate the client in Prisma 7.10 (2026-09-16 12:19)
+- Symptom: after `npm run db:migrate` applied the `init_auth` migration and printed "Your database is now in sync with your schema", `src/generated/prisma/models/` was still empty (only the stale scaffold-time client from the empty schema existed; no `User.ts`, `Session.ts`, etc.).
+- Investigation: compared file timestamps on `src/generated/prisma/*` before and after `db:migrate` — unchanged. `prisma migrate dev`'s own output had no "Generated Prisma Client" line this time, unlike the manual `prisma generate` run during scaffolding, which did print that line. Confirmed this isn't a caching issue by checking file contents (`models.ts` had no `User` reference).
+- Cause: in earlier Prisma major versions, `migrate dev` always ran `generate` as its last step. In the installed 7.10.0, it does not (at least not with this config); the CLI's own `--help` for `migrate dev` doesn't document a flag for this either way.
+- Fix: run `npx prisma generate` explicitly after every `migrate dev` from now on. Recommend making this a documented habit (or a follow-up: wire `generate` into `db:migrate` itself as `prisma migrate dev && prisma generate`) rather than relying on it happening implicitly.
+- Commit: (rolled into the schema commit)

@@ -9,7 +9,7 @@
     "lint": "eslint",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
-    "db:migrate": "prisma migrate dev",
+    "db:migrate": "prisma migrate dev && prisma generate",
     "db:studio": "prisma studio",
     "typecheck": "tsc --noEmit"
   },
