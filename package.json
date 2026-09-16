@@ -11,7 +11,8 @@
     "db:down": "docker compose down",
     "db:migrate": "prisma migrate dev && prisma generate",
     "db:studio": "prisma studio",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:security": "tsx --env-file=.env scripts/check-security-core.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
