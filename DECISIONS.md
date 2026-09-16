@@ -76,4 +76,10 @@ constraints actually fire: docs/evidence/constraints.md.
 - Rejected and why: a sliding window (e.g. a sorted set of timestamps, or two overlapping half-windows averaged together) gives smoother enforcement but needs more than one row and more than one statement per check. A fixed window needs exactly one row and one atomic statement per key, which is simpler to reason about and to verify. Known, accepted trade-off: a client can burst up to 2x `max` requests across a window boundary (e.g. `max` requests just before a window ends, then `max` more just after it starts) — accepted because this slice's rate limits exist to blunt scripted brute-forcing, not to provide an exact global cap, and the simplicity is worth that gap.
 - Files: src/lib/security/rate-limit.ts
 
+### forgot-password timing: deferred work via next/server's after()
+- Decision: when to do the user lookup, token creation, and email send for forgot-password relative to sending the HTTP response.
+- Chosen: respond 200 with the generic message immediately after validation and both rate limits pass, then do the lookup/token/email work inside `after()` (from `next/server`), which Next runs once the response has been flushed to the client. Errors inside it are caught and logged server-side only, since there's no client left to report them to.
+- Rejected and why: doing that work inline, before responding — rejected because the account-exists branch does strictly more work (a delete, an insert, a network call to send an email) than the account-doesn't-exist branch (nothing), so the response time itself would leak whether the email is registered even though the response body is identical either way. Deferring the work until after the response is sent removes that timing signal entirely, since none of it can affect how long the client waited.
+- Files: src/app/api/auth/forgot-password/route.ts
+
 ## Deliberately excluded
