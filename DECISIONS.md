@@ -34,6 +34,11 @@
 - Files: (none in this repo; parent folder's .git/config lost its `origin` remote)
 
 ### Database constraints (init_auth migration)
+Totals, verified directly against `pg_constraint`/`pg_indexes` on 2026-09-16: 6 models in
+schema.prisma, 6 PRIMARY KEY, 3 FOREIGN KEY, 3 UNIQUE (as unique indexes, since `@unique`
+generates `CREATE UNIQUE INDEX` rather than a `pg_constraint` unique row), 8 CHECK. No 4th
+foreign key exists.
+
 Each constraint below and the invalid state it exists to block. Evidence that the eight CHECK
 constraints actually fire: docs/evidence/constraints.md.
 
@@ -58,5 +63,11 @@ constraints actually fire: docs/evidence/constraints.md.
 - `idempotency_keys_status_valid` (CHECK `status IN ('processing', 'completed')`) — blocks any status value the handler code has no branch for.
 - `idempotency_keys_completed_has_response` (CHECK `status = 'processing' OR (response_status IS NOT NULL AND response_body IS NOT NULL)`) — blocks a row marked completed with no stored response, which would make a replay of that idempotency key return nothing to a legitimately retrying client.
 - Files: prisma/schema.prisma, prisma/migrations/20260916111844_init_auth/migration.sql
+
+### Verification code hashing: HMAC-SHA256, not plain SHA-256
+- Decision: how to hash the 6-digit email verification code before storing it in `email_verification_codes.code_hash`.
+- Chosen: HMAC-SHA256 keyed with a server-only secret (`AUTH_SECRET`).
+- Rejected and why: plain SHA-256, the same scheme used for session tokens and reset tokens — correct for those because a 32-random-byte token has 256 bits of entropy, infeasible to guess or brute-force even knowing only its hash. A 6-digit code has only 1,000,000 possible values; all of them can be hashed with plain SHA-256 and compared to a stolen hash in under a second, so plain SHA-256 gives a verification code no real protection. Keying the hash with a secret the attacker doesn't have (HMAC) closes that gap: brute-forcing now requires the secret, not just the hash.
+- Files: src/lib/auth/tokens.ts, prisma/schema.prisma (comment on `EmailVerificationCode.codeHash`)
 
 ## Deliberately excluded

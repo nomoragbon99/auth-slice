@@ -22,3 +22,10 @@ Append-only. Every error, surprise or wrong assumption during the build. Raw mat
 - Cause: in earlier Prisma major versions, `migrate dev` always ran `generate` as its last step. In the installed 7.10.0, it does not (at least not with this config); the CLI's own `--help` for `migrate dev` doesn't document a flag for this either way.
 - Fix: run `npx prisma generate` explicitly after every `migrate dev` from now on. Recommend making this a documented habit (or a follow-up: wire `generate` into `db:migrate` itself as `prisma migrate dev && prisma generate`) rather than relying on it happening implicitly.
 - Commit: (rolled into the schema commit)
+
+### Wrong claim: "hashed for the same leak-resistance reason as session tokens" applied to verification codes (2026-09-16 16:20)
+- Symptom: the schema comment on `EmailVerificationCode.codeHash`, and my own report on that task, both stated plain SHA-256 hashing of the verification code was protective in the same way it is for session/reset tokens.
+- Investigation: re-examined the actual entropy of what's being hashed. Session tokens and reset tokens are 32 random bytes (256 bits) — even knowing the hash, guessing the input is infeasible. The verification code is 6 decimal digits — only 1,000,000 possible values. Confirmed a plain SHA-256 of all 1,000,000 codes can be computed and compared to a stolen hash in well under a second on ordinary hardware, i.e. the hash gives no real protection for low-entropy input.
+- Cause: I generalized "hash it, that's leak-resistant" from tokens to codes without checking that the argument depends on the input having enough entropy to resist brute force — codes don't.
+- Fix: verification codes will be hashed with HMAC-SHA256 keyed by a server-only secret (`AUTH_SECRET`) instead of plain SHA-256, closing the brute-force gap since the attacker needs the secret, not just the hash. Corrected the schema.prisma comment and added a DECISIONS.md entry explaining the distinction. Implemented in `src/lib/auth/tokens.ts` as part of task A1.3.
+- Commit: (this fix commit, see below)

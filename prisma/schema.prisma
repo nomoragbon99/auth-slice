@@ -70,7 +70,11 @@ model EmailVerificationCode {
   userId String @unique @map("user_id") @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Hashed for the same leak-resistance reason as session tokens.
+  // NOT a plain SHA-256 of the code: a 6-digit code has only 1,000,000 possible values, so all
+  // of them can be hashed and compared in under a second -- plain SHA-256 would give an
+  // attacker with read access to this table a way to recover the live code. This column stores
+  // HMAC-SHA256(code) keyed with AUTH_SECRET (see src/lib/auth/tokens.ts), which nobody can
+  // brute-force offline without also knowing the server's secret key.
   codeHash String @map("code_hash")
 
   // Enforces the 10-minute TTL; CHECK expires_at > created_at below blocks a code born
