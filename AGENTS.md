@@ -36,6 +36,9 @@ Use current stable versions. Before writing version-sensitive code (the Next.js 
 8. Raw SQL only through parameterised Prisma queries ($queryRaw tagged templates). Never string concatenation.
 9. Small functions named for what they do. Comment the WHY, not the WHAT.
 
+## Other projects on this machine
+The owner has other projects using Docker, PostgreSQL and Prisma. Never run `docker system prune`, `docker volume prune`, `docker compose down -v`, or any command that stops, removes or modifies containers, volumes or databases not defined in THIS repository's docker-compose.yml. Never install or upgrade anything globally without asking.
+
 ## Secrets: non-negotiable
 - Never create, open, read, print or edit `.env`. Maintain only `.env.example` with commented placeholders.
 - If a new environment variable is needed, add it to .env.example with a comment saying where the value comes from, then STOP and tell the owner to add the real value by hand.
