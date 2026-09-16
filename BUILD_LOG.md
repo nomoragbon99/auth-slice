@@ -35,4 +35,12 @@ Append-only. Every error, surprise or wrong assumption during the build. Raw mat
 - Investigation: confirmed `Algorithm` is declared `export declare const enum Algorithm { ... Argon2id = 2 }` in `@node-rs/argon2`'s `.d.ts`. `create-next-app`'s generated tsconfig.json sets `isolatedModules: true` (required by Next's per-file compilation), which TypeScript disallows combining with referencing an ambient const enum by name, since the compiler can't verify the enum's values without full-program knowledge. Checked whether the library exports a runtime object instead: `require('@node-rs/argon2').Algorithm.Argon2id` does return `2` at runtime, so the enum exists as a value, just not in a form `tsc` will let this project reference by name.
 - Cause: a version-specific interaction between this project's Next.js-mandated `isolatedModules` setting and how this native (napi-rs) package declares its enum.
 - Fix: use the literal `2` with a comment citing the library's own declaration, instead of `Algorithm.Argon2id`.
-- Commit: (this security-core commit)
+- Evidence the literal is actually argon2id, not some other algorithm: hashed a sample password with `hashPassword()` and printed the first 30 characters of the result: `$argon2id$v=19$m=19456,t=2,p=1` -- matches the configured memoryCost (19456), timeCost (2), and parallelism (1) from src/config/auth.ts exactly.
+- Commit: 92db117
+
+### Wrong verification query: cross join always reads 0 if any one table is empty (2026-09-16 17:40)
+- Symptom: my own suggested manual-verification command, `SELECT count(*) FROM users, rate_limit_buckets, idempotency_keys`, was presented as proof all three tables are empty after cleanup.
+- Investigation: re-read what that query actually does. `FROM a, b, c` with no join condition is an implicit CROSS JOIN -- it returns one row per combination of rows across all three tables, so `count(*)` is `rows(a) * rows(b) * rows(c)`. If even one of the three tables has zero rows, the product is 0 regardless of how many rows the other two have -- the query can't distinguish "all three empty" from "two have data, one is empty".
+- Cause: I wrote a query that looked like a plain row count without checking what a comma-separated FROM list actually computes.
+- Fix: use one query with a separate scalar subquery per table -- `SELECT (SELECT count(*) FROM users) AS users, (SELECT count(*) FROM rate_limit_buckets) AS rate_limit_buckets, (SELECT count(*) FROM idempotency_keys) AS idempotency_keys` -- which reports each table's count independently. Re-ran it: all three genuinely read 0.
+- Commit: (this log-corrections commit)
