@@ -70,4 +70,10 @@ constraints actually fire: docs/evidence/constraints.md.
 - Rejected and why: plain SHA-256, the same scheme used for session tokens and reset tokens — correct for those because a 32-random-byte token has 256 bits of entropy, infeasible to guess or brute-force even knowing only its hash. A 6-digit code has only 1,000,000 possible values; all of them can be hashed with plain SHA-256 and compared to a stolen hash in under a second, so plain SHA-256 gives a verification code no real protection. Keying the hash with a secret the attacker doesn't have (HMAC) closes that gap: brute-forcing now requires the secret, not just the hash.
 - Files: src/lib/auth/tokens.ts, prisma/schema.prisma (comment on `EmailVerificationCode.codeHash`)
 
+### Rate limiting: fixed window, not sliding window
+- Decision: how `rate_limit_buckets` counts attempts within a time window.
+- Chosen: fixed window — one row per `(key, window_start)`, incremented with a single atomic `INSERT ... ON CONFLICT ... DO UPDATE ... RETURNING count`.
+- Rejected and why: a sliding window (e.g. a sorted set of timestamps, or two overlapping half-windows averaged together) gives smoother enforcement but needs more than one row and more than one statement per check. A fixed window needs exactly one row and one atomic statement per key, which is simpler to reason about and to verify. Known, accepted trade-off: a client can burst up to 2x `max` requests across a window boundary (e.g. `max` requests just before a window ends, then `max` more just after it starts) — accepted because this slice's rate limits exist to blunt scripted brute-forcing, not to provide an exact global cap, and the simplicity is worth that gap.
+- Files: src/lib/security/rate-limit.ts
+
 ## Deliberately excluded

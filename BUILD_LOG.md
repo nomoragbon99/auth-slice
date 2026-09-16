@@ -28,4 +28,11 @@ Append-only. Every error, surprise or wrong assumption during the build. Raw mat
 - Investigation: re-examined the actual entropy of what's being hashed. Session tokens and reset tokens are 32 random bytes (256 bits) — even knowing the hash, guessing the input is infeasible. The verification code is 6 decimal digits — only 1,000,000 possible values. Confirmed a plain SHA-256 of all 1,000,000 codes can be computed and compared to a stolen hash in well under a second on ordinary hardware, i.e. the hash gives no real protection for low-entropy input.
 - Cause: I generalized "hash it, that's leak-resistant" from tokens to codes without checking that the argument depends on the input having enough entropy to resist brute force — codes don't.
 - Fix: verification codes will be hashed with HMAC-SHA256 keyed by a server-only secret (`AUTH_SECRET`) instead of plain SHA-256, closing the brute-force gap since the attacker needs the secret, not just the hash. Corrected the schema.prisma comment and added a DECISIONS.md entry explaining the distinction. Implemented in `src/lib/auth/tokens.ts` as part of task A1.3.
-- Commit: (this fix commit, see below)
+- Commit: 94598e4
+
+### tsc fails on @node-rs/argon2's Algorithm enum: "Cannot access ambient const enums when 'isolatedModules' is enabled" (2026-09-16 16:57)
+- Symptom: `npm run typecheck` → `src/lib/auth/password.ts(5,14): error TS2748: Cannot access ambient const enums when 'isolatedModules' is enabled.`, pointing at `Algorithm.Argon2id`.
+- Investigation: confirmed `Algorithm` is declared `export declare const enum Algorithm { ... Argon2id = 2 }` in `@node-rs/argon2`'s `.d.ts`. `create-next-app`'s generated tsconfig.json sets `isolatedModules: true` (required by Next's per-file compilation), which TypeScript disallows combining with referencing an ambient const enum by name, since the compiler can't verify the enum's values without full-program knowledge. Checked whether the library exports a runtime object instead: `require('@node-rs/argon2').Algorithm.Argon2id` does return `2` at runtime, so the enum exists as a value, just not in a form `tsc` will let this project reference by name.
+- Cause: a version-specific interaction between this project's Next.js-mandated `isolatedModules` setting and how this native (napi-rs) package declares its enum.
+- Fix: use the literal `2` with a comment citing the library's own declaration, instead of `Algorithm.Argon2id`.
+- Commit: (this security-core commit)
