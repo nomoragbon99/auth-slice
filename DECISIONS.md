@@ -27,4 +27,10 @@
 - Rejected and why: the Next.js default, port 3000 — rejected because another local project already listens on 3000. Hardcoding the port (rather than leaving it to chance or an env var) keeps APP_URL and the running server always in agreement.
 - Files: package.json, .env.example
 
+### GitHub repository for this slice
+- Decision: GitHub repository for this slice.
+- Chosen: deleted a superseded one-commit draft repo of the same name (draft still preserved locally in the parent folder at 38fcc62), removed the parent folder's stale remote, and created a fresh auth-slice repo.
+- Rejected and why: merging unrelated histories (confusing history for reviewers); force-pushing over the draft; a different repo name (inconsistent naming across the four assessments).
+- Files: (none in this repo; parent folder's .git/config lost its `origin` remote)
+
 ## Deliberately excluded
