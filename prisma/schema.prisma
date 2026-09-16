@@ -1,4 +1,6 @@
-// Models are added in later tasks. The connection URL lives in prisma.config.ts (Prisma 7 no longer reads it here).
+// The connection URL lives in prisma.config.ts (Prisma 7 no longer reads it here).
+// snake_case table/column names via @@map/@map so the SQL layer reads naturally in psql;
+// Prisma Client still exposes the usual camelCase field names in TypeScript.
 
 generator client {
   provider = "prisma-client"
@@ -7,4 +9,156 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+model User {
+  // gen_random_uuid() is a Postgres 18 built-in (no extension needed); giving it a real
+  // database default means the row is valid even if inserted by something other than Prisma.
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  // Stored trimmed and lowercased by the app; CHECK (email = lower(btrim(email))) below is the
+  // actual guarantee, since a raw SQL script or a future bug in the app can't bypass a CHECK.
+  email String @unique
+
+  // Display name shown on the dashboard; length bounds enforced by a CHECK below.
+  name String
+
+  // Argon2id's own encoded output ("$argon2id$v=19$...") is a self-describing text string,
+  // not fixed-width, so it can't be a fixed-length or binary column.
+  passwordHash String @map("password_hash")
+
+  // Null = not verified yet; a timestamp = verified at that instant. This nullable timestamp
+  // IS the verified flag (is-verified == emailVerifiedAt IS NOT NULL) -- no separate boolean,
+  // so there is nothing for a boolean and a timestamp to disagree about.
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  // @default(now()) makes the column correct even for a row Prisma didn't create;
+  // @updatedAt makes Prisma Client bump it on every update through the client.
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  sessions               Session[]
+  emailVerificationCode  EmailVerificationCode?
+  passwordResetTokens    PasswordResetToken[]
+
+  @@map("users")
+}
+
+model Session {
+  // The SHA-256 hex hash of the session token, not a UUID: the raw token lives only in the
+  // cookie, so a leaked database row can never be replayed as a live session.
+  id String @id
+
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // No expiry would mean a session that never ends; enforces the 7-day fixed lifetime.
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  // Looking up / revoking all of one user's sessions is a lookup by user_id.
+  @@index([userId])
+  @@map("sessions")
+}
+
+model EmailVerificationCode {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  // UNIQUE enforces "at most one live code per user" at the database level: a resend
+  // updates this row in place, it never inserts a second one alongside the old code.
+  userId String @unique @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Hashed for the same leak-resistance reason as session tokens.
+  codeHash String @map("code_hash")
+
+  // Enforces the 10-minute TTL; CHECK expires_at > created_at below blocks a code born
+  // already-expired.
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+
+  // Wrong guesses so far; CHECK attempts >= 0 below blocks a negative count (which would
+  // effectively grant extra guesses against the max-attempts limit).
+  attempts Int @default(0)
+
+  // Server-side source of truth for the 60-second resend cooldown; distinct from createdAt
+  // because a resend updates this in place without changing when the code was first created.
+  lastSentAt DateTime @map("last_sent_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("email_verification_codes")
+}
+
+model PasswordResetToken {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  // Not unique: an older used/expired token can still exist when a new one is issued.
+  // The forgot-password route deletes the user's previous UNUSED tokens on each new request.
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // UNIQUE because the reset request (POST, with the token in the body) looks up a row by
+  // this hash; a hash collision must never let one token match two rows.
+  tokenHash String @unique @map("token_hash")
+
+  // Enforces the 30-minute TTL; CHECK expires_at > created_at below blocks a token born
+  // already-expired.
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+
+  // Null = still usable; a timestamp = already consumed. The handler checks used_at IS NULL
+  // before honoring the token, then sets it, making the token single-use.
+  usedAt DateTime? @map("used_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model RateLimitBucket {
+  // Identifies what's being limited, e.g. "signin:ip:203.0.113.5".
+  key String
+
+  // Start of this fixed counting window (per windowSeconds in src/config/auth.ts).
+  windowStart DateTime @map("window_start") @db.Timestamptz
+
+  // Attempts seen in this window; CHECK count > 0 below blocks a pointless zero/negative row.
+  count Int
+
+  // Composite PK: "increment this window's counter" is one upsert keyed on the exact pair,
+  // so two counters for the same key+window can never both exist.
+  @@id([key, windowStart])
+  @@map("rate_limit_buckets")
+}
+
+model IdempotencyKey {
+  // Same key can legitimately be reused across different endpoints, so the PK is the pair,
+  // not `key` alone.
+  scope String
+  key   String
+
+  // SHA-256 of the normalised request body; comparing this on a retry is what turns "same
+  // key, different body" into a 422 rather than silently replaying the wrong response.
+  requestHash String @map("request_hash")
+
+  // CHECK status IN ('processing', 'completed') below: a request is either still being
+  // worked on, or done -- any other string is a state the handler has no branch for.
+  status String
+
+  // Null while processing -- there is no response yet to store.
+  responseStatus Int? @map("response_status")
+
+  // Json maps to Postgres jsonb by default for this provider: stores the parsed JSON value
+  // (not the exact original bytes -- Postgres may reorder keys / drop insignificant
+  // whitespace), which is enough to reconstruct and re-serve an equivalent response.
+  responseBody Json? @map("response_body")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  // Enforces the 24-hour retention from config; a later cleanup job deletes rows past this.
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+
+  @@id([scope, key])
+  @@map("idempotency_keys")
 }
