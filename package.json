@@ -10,7 +10,8 @@
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:migrate": "prisma migrate dev && prisma generate",
-    "db:studio": "prisma studio",
+    "// db:studio": "Fixed port 5555 (must match PRISMA_STUDIO_PORT in src/config/auth.ts): a random port let two unrelated local projects collide and cross-serve data -- see BUILD_LOG.md",
+    "db:studio": "prisma studio --port 5555",
     "typecheck": "tsc --noEmit",
     "check:security": "tsx --env-file=.env scripts/check-security-core.ts"
   },

@@ -1,6 +1,16 @@
 // Every tunable value for the auth slice. Handlers import from here; no magic numbers elsewhere.
 // All durations are in seconds so they line up with HTTP's Retry-After header.
 
+// Fixed port for `npm run db:studio` (see package.json). Not imported by any app runtime code --
+// `prisma studio` is invoked from the CLI, which can't read this file -- but kept here as this
+// project's one source of truth for the value, so package.json's hardcoded `--port 5555` has
+// somewhere authoritative to point back to if it's ever questioned or needs to change.
+// Prisma Studio otherwise picks a random free port on every launch; two unrelated local projects
+// both doing that can coincidentally land on the identical port, and whichever server bound it
+// first silently answers for both -- see BUILD_LOG.md, "Prisma Studio showed another project's
+// data, part 2: a port collision, not a config bug".
+export const PRISMA_STUDIO_PORT = 5555;
+
 const MINUTE = 60;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
