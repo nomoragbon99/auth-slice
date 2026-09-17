@@ -82,4 +82,10 @@ constraints actually fire: docs/evidence/constraints.md.
 - Rejected and why: doing that work inline, before responding — rejected because the account-exists branch does strictly more work (a delete, an insert, a network call to send an email) than the account-doesn't-exist branch (nothing), so the response time itself would leak whether the email is registered even though the response body is identical either way. Deferring the work until after the response is sent removes that timing signal entirely, since none of it can affect how long the client waited.
 - Files: src/app/api/auth/forgot-password/route.ts
 
+### Sign-up form's Idempotency-Key lifecycle
+- Decision: when the sign-up form's `Idempotency-Key` (sent with every `POST /api/auth/signup`) should be regenerated versus reused.
+- Chosen: generate one key when the form mounts; keep reusing that same key while a request is in flight or after a network failure (no response received at all); generate a fresh key only after receiving a FINAL server response that isn't 201 (400, 409, 422, 429, 500).
+- Rejected and why: keeping one key for the form's entire lifetime — rejected because the server stores whatever response it gave against that key (see src/lib/security/idempotency.ts). If signup returns 409 EMAIL_TAKEN, that 409 is now permanently associated with the key; when the person corrects the email and resubmits with the same key, the request body has changed, so the server returns 422 IDEMPOTENCY_KEY_REUSED instead of actually trying the corrected signup — the person would be stuck unable to ever submit successfully from that page load. Rotating the key after any non-201 final response avoids this, while still keeping the SAME key across an in-flight request or a network failure, which is exactly the case idempotency exists to protect (a double-click, or a retry after "did that actually go through?").
+- Files: src/app/(auth)/sign-up/page.tsx
+
 ## Deliberately excluded
