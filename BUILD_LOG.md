@@ -58,3 +58,10 @@ Append-only. Every error, surprise or wrong assumption during the build. Raw mat
 - Cause: a structural mismatch between "a hook generic enough to wrap any of our schemas" and a resolver library designed around inference at a single, concrete call site -- not a bug in either library, just two designs that don't compose directly.
 - Fix: cast only at the `zodResolver(schema as any)` call itself, then cast its result to `Resolver<TInput>` -- the type-unsafe step is contained to that one line (with a comment explaining why), while `useAuthForm`'s actual public API (`form`, `submit`, etc.) stays fully typed for every caller.
 - Commit: (this A1.5 commit)
+
+### Two real bugs found during the A1.7 strict review (2026-09-17 18:31)
+- Symptom: (1) `rate-limit.ts`'s opportunistic cleanup was called as `void cleanupOldBucketsOncePerInterval()` with no `.catch()`, and the function itself had no internal try/catch -- a failed `deleteMany` (e.g. a DB blip) would have been an unhandled promise rejection on nearly every mutating request, since `consume()` runs on every rate-limited route. (2) `SignOutButton`'s `onClick` was `try { ... } finally { ... }` with no `catch` -- a network failure during sign-out propagated out of the click handler uncaught, silently leaving the user with no feedback (the button just stopped showing "Signing out…").
+- Investigation: found by reading both functions end-to-end while auditing for "any promise that isn't awaited or error that isn't handled" per the A1.7 review. Confirmed neither had a code path that could report or recover from a rejection.
+- Cause: both were written assuming the underlying call (`deleteMany`, `fetch`) would simply succeed; neither considered the failure path explicitly.
+- Fix: wrapped the cleanup body in try/catch with `console.error`; added a `catch` to `SignOutButton` that shows a `FormAlert`-style message ("Couldn't sign out. Check your connection and try again.") and re-enables the button.
+- Commit: (this fix commit)
