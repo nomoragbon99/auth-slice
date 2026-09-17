@@ -15,7 +15,7 @@ type SignUpResponse = { user: { name: string; email: string }; next: string };
 
 export default function SignUpPage() {
   const router = useRouter();
-  const { form, formError, submit } = useAuthForm<SignUpInput, SignUpResponse>(signUpSchema, {
+  const { form, formError, submit, pushNext } = useAuthForm<SignUpInput, SignUpResponse>(signUpSchema, {
     name: "",
     email: "",
     password: "",
@@ -35,7 +35,7 @@ export default function SignUpPage() {
   async function onSubmit(data: SignUpInput) {
     const result = await submit("/api/auth/signup", data, { "Idempotency-Key": idempotencyKey });
     if (result.ok) {
-      router.push(result.data.next);
+      pushNext(router, result.data);
       return;
     }
     if (!result.networkError) {
