@@ -75,4 +75,12 @@ export const authConfig = {
     // Longest password accepted; caps hashing work per request.
     maxLength: 128,
   },
+
+  network: {
+    // X-Forwarded-For/X-Real-IP are only meaningful behind a proxy that sets them itself and
+    // strips any value a client tried to supply -- otherwise any client can put whatever IP it
+    // likes in them. Default false (untrusted) so a bare `npm run start` never trusts them by
+    // accident; set TRUST_PROXY=true only once actually deployed behind such a proxy.
+    trustProxy: process.env.TRUST_PROXY === "true",
+  },
 } as const;

@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { authConfig } from "@/config/auth";
 import { db } from "@/lib/db";
 import { errorResponse } from "@/lib/http";
 
@@ -77,10 +78,18 @@ async function cleanupOldBucketsOncePerInterval(): Promise<void> {
 }
 
 export function getClientIp(request: NextRequest): string {
-  // Only trustworthy behind a proxy you control that sets/overwrites this header itself --
-  // otherwise a client can put anything it likes in it. Fine for this slice's local/dev use;
-  // a real deployment behind a trusted proxy (e.g. Vercel) should be verified against that
-  // proxy's own documented header.
+  // X-Forwarded-For/X-Real-IP are client-supplied headers -- anyone can put anything in them.
+  // They're only meaningful when a trusted proxy in front of this app sets them itself and
+  // strips whatever a client tried to send. Without TRUST_PROXY=true (see .env.example), every
+  // client is treated identically ("direct"), so every *purely IP-keyed* rate limit
+  // (signupPerIp, forgotPerIp, resetPerIp, signinPerIp) shares one bucket across all clients
+  // rather than being individually bypassable by rotating a fake header on every request. This
+  // does mean those limits are effectively global (not per-visitor) until deployed behind a
+  // real proxy -- account-, email-, and user-keyed limits (signinPerIpEmail, forgotPerEmail,
+  // resendPerUser, verifyPerUser) are unaffected either way, since they don't depend on IP.
+  // See DECISIONS.md.
+  if (!authConfig.network.trustProxy) return "direct";
+
   const forwardedFor = request.headers.get("x-forwarded-for");
   if (forwardedFor) return forwardedFor.split(",")[0].trim();
 
