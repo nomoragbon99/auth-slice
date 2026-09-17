@@ -7,7 +7,7 @@
 - Chosen: Node v26.3.1, already installed.
 - Note: Node v26.3.1 (Current, not LTS) is in use. If a dependency fails to install or a native module errors, suspect the Node version first and report it before attempting workarounds.
 - Rejected and why: installing Node 20 or 22 LTS alongside it — rejected for now because it means a global toolchain change, and AGENTS.md forbids installing or upgrading globally without asking. Revisit if `@node-rs/argon2` or Prisma's engines fail to build.
-- Files: (none yet; will affect package.json "engines" and any CI setup)
+- Files: none. Deliberately no `engines` field was ever added to package.json: Node 26 is not an LTS release, so pinning `engines` to it would document a version nobody should actually deploy on; there is no CI in this project to enforce an `engines` constraint against either. Revisit this if the project moves to a Node LTS release or gains CI.
 
 ### Repository layout
 - Decision: whether auth-slice is its own repository or a folder inside the parent repo at C:\Users\HP\Documents\build-assessments.
@@ -94,5 +94,17 @@ constraints actually fire: docs/evidence/constraints.md.
 - Rejected and why: trusting the headers unconditionally (the original A1.4 implementation) — rejected because found during the A1.7 review: any client can put an arbitrary value in `X-Forwarded-For` and get a fresh rate-limit bucket on every single request, defeating the limiter entirely with zero effort.
 - Effect of the fix, locally and in any deployment without `TRUST_PROXY=true`: `signupPerIp`, `forgotPerIp`, `resetPerIp`, and `signinPerIp` — the four limits keyed purely on IP — now share ONE bucket across every visitor, since everyone is `"direct"`. This makes them effectively global caps rather than per-visitor ones until deployed behind a real proxy, which is an intentional, safer default than the alternative (a limit that looks like it's working but isn't). `signinPerIpEmail`, `forgotPerEmail`, `resendPerUser`, and `verifyPerUser` are unaffected either way, since none of them depend on the IP portion of their key alone (they're combined with, or entirely based on, the account/email/user).
 - Files: src/config/auth.ts, src/lib/security/rate-limit.ts, .env.example
+
+### CSRF: allowing a request with no Origin header at all
+- Decision: what `assertSameOrigin` should do when the `Origin` header is entirely absent, found worth an explicit decision during the A1.7 review.
+- Chosen: allow the request through (no error) when `Origin` is missing, only rejecting when it's present and doesn't match `APP_URL`'s origin.
+- Rejected and why: rejecting whenever `Origin` is absent — rejected because browsers always send `Origin` on a cross-site POST (fetch, XHR, or a cross-site `<form>` submission), which is exactly the request shape a CSRF attempt needs; a same-origin request or a request from a non-browser tool like `curl` may simply not include it, and neither of those is the attack this check exists to stop. A forged cross-site request is still rejected either way, because `SameSite=Lax` on the session cookie (src/lib/auth/session.ts) is the primary defence: it stops the cookie ever being attached to a cross-site POST before this check even runs, so such a request arrives with no valid session to act on regardless of what its Origin header says.
+- Files: src/lib/security/origin.ts
+
+### Keeping GET /api/auth/me
+- Decision: whether to remove the `GET /api/auth/me` route found unused by any page during the A1.7 review.
+- Chosen: keep it, specifically for verifying session state directly with `curl` in evidence files (e.g. docs/evidence/protected-routes.md-style checks) without needing to render a full page.
+- Rejected and why: deleting it as dead code — rejected because it isn't dead in the sense that matters: it's a diagnostic tool for the curl-based verification this project relies on throughout, even though no page's UI calls it.
+- Files: src/app/api/auth/me/route.ts
 
 ## Deliberately excluded

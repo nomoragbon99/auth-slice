@@ -3,6 +3,7 @@ import { authConfig } from "@/config/auth";
 import { db } from "@/lib/db";
 import { errorResponse, json, validationError } from "@/lib/http";
 import { hashPassword } from "@/lib/auth/password";
+import { invalidateAllUserSessions } from "@/lib/auth/session";
 import { sha256Hex } from "@/lib/auth/tokens";
 import { assertSameOrigin } from "@/lib/security/origin";
 import { consume, getClientIp, rateLimitResponse } from "@/lib/security/rate-limit";
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
         await tx.user.update({ where: { id: tokenRow.userId }, data: { passwordHash } });
 
         // A password reset invalidates every existing session, not just this device's.
-        await tx.session.deleteMany({ where: { userId: tokenRow.userId } });
+        await invalidateAllUserSessions(tokenRow.userId, tx);
       });
     } catch (error) {
       if (error instanceof TokenAlreadyConsumedError) return TOKEN_INVALID_OR_EXPIRED();
