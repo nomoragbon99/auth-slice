@@ -9,6 +9,7 @@ import { SubmitButton } from "@/components/auth/SubmitButton";
 import { useAuthForm } from "@/components/auth/useAuthForm";
 import { INPUT_CLASSES, FOCUS_RING } from "@/components/auth/styles";
 import { signInSchema, type SignInInput } from "@/lib/validation/auth";
+import { getSafeRedirectPath } from "@/lib/security/safe-redirect";
 
 type SignInResponse = { next: string };
 
@@ -29,7 +30,17 @@ export function SignInForm() {
 
   async function onSubmit(data: SignInInput) {
     const result = await submit("/api/auth/signin", data);
-    if (result.ok) router.push(result.data.next);
+    if (!result.ok) return;
+
+    // The server's `next` already encodes verification status ("/verify-email" for an
+    // unverified account) -- that always wins. Only when the server's default is the plain
+    // "/dashboard" destination do we consider honouring a `?next=` from the URL, and even then
+    // only if it passes the open-redirect check.
+    const target =
+      result.data.next === "/dashboard"
+        ? getSafeRedirectPath(searchParams.get("next"), result.data.next)
+        : result.data.next;
+    router.push(target);
   }
 
   return (
