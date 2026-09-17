@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { authConfig } from "@/config/auth";
 import { db } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { generateSessionToken, sha256Hex } from "./tokens";
 
 export type SafeUser = {
@@ -83,8 +84,14 @@ export async function invalidateSession(sessionId: string): Promise<void> {
   });
 }
 
-export async function invalidateAllUserSessions(userId: string): Promise<void> {
-  await db.session.deleteMany({ where: { userId } });
+// Accepts an optional transaction client so a caller already inside a db.$transaction(...) (e.g.
+// reset-password, which must invalidate sessions atomically alongside updating the password)
+// can use this same function instead of duplicating the deleteMany inline.
+export async function invalidateAllUserSessions(
+  userId: string,
+  client: Pick<Prisma.TransactionClient, "session"> = db,
+): Promise<void> {
+  await client.session.deleteMany({ where: { userId } });
 }
 
 // Convenience wrapper for server components that just need to know who's signed in.
