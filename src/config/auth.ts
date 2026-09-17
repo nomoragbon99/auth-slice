@@ -69,6 +69,22 @@ export const authConfig = {
     retentionSeconds: 24 * HOUR,
   },
 
+  tokens: {
+    // Byte length of session tokens and reset tokens: 32 bytes = 256 bits of entropy, infeasible
+    // to guess or brute-force even given only their SHA-256 hash (see src/lib/auth/tokens.ts).
+    byteLength: 32,
+    // AUTH_SECRET must decode to at least this many bytes -- the same 256-bit floor as the
+    // tokens above, so the HMAC key that protects verification codes is no weaker than they are.
+    minAuthSecretBytes: 32,
+  },
+
+  rateLimitCleanup: {
+    // How often (at most) the opportunistic rate_limit_buckets cleanup sweep runs, per process.
+    intervalSeconds: 5 * MINUTE,
+    // How long a rate_limit_buckets row is kept before that sweep deletes it.
+    bucketRetentionSeconds: 24 * HOUR,
+  },
+
   password: {
     // Shortest password accepted (NIST SP 800-63B minimum).
     minLength: 8,

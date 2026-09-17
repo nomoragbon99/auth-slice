@@ -9,11 +9,11 @@ import { authConfig } from "@/config/auth";
 // just the hash. See DECISIONS.md, "Verification code hashing: HMAC-SHA256, not plain SHA-256".
 
 export function generateSessionToken(): string {
-  return randomBytes(32).toString("base64url");
+  return randomBytes(authConfig.tokens.byteLength).toString("base64url");
 }
 
 export function generateResetToken(): string {
-  return randomBytes(32).toString("base64url");
+  return randomBytes(authConfig.tokens.byteLength).toString("base64url");
 }
 
 export function generateVerificationCode(): string {
@@ -33,23 +33,20 @@ let cachedAuthSecret: Buffer | null = null;
 function getAuthSecret(): Buffer {
   if (cachedAuthSecret) return cachedAuthSecret;
 
+  const generateCommand = `node -e "console.log(require('crypto').randomBytes(${authConfig.tokens.minAuthSecretBytes}).toString('base64url'))"`;
+
   const raw = process.env.AUTH_SECRET;
   if (!raw) {
-    throw new Error(
-      "AUTH_SECRET is not set. Generate one with:\n" +
-        '  node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64url\'))"\n' +
-        "and add it to .env.",
-    );
+    throw new Error(`AUTH_SECRET is not set. Generate one with:\n  ${generateCommand}\nand add it to .env.`);
   }
 
   // Decode first: a base64url string's character count is NOT its byte length (4 base64url
   // characters encode 3 bytes), so measuring the raw string's length would undercount the
   // actual entropy and could let a too-short secret slip through.
   const decoded = Buffer.from(raw, "base64url");
-  if (decoded.length < 32) {
+  if (decoded.length < authConfig.tokens.minAuthSecretBytes) {
     throw new Error(
-      `AUTH_SECRET decodes to only ${decoded.length} bytes; it must be at least 32. Generate a new one with:\n` +
-        '  node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64url\'))"',
+      `AUTH_SECRET decodes to only ${decoded.length} bytes; it must be at least ${authConfig.tokens.minAuthSecretBytes}. Generate a new one with:\n  ${generateCommand}`,
     );
   }
 

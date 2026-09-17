@@ -54,23 +54,22 @@ export function rateLimitResponse(retryAfterSeconds: number) {
 }
 
 let lastCleanupAt = 0;
-const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
-const BUCKET_RETENTION_MS = 24 * 60 * 60 * 1000;
 
-// Opportunistic cleanup, at most once every 5 minutes per process: piggybacks on a normal
-// request instead of needing a separate scheduled job for this slice's scale.
+// Opportunistic cleanup, at most once every authConfig.rateLimitCleanup.intervalSeconds per
+// process: piggybacks on a normal request instead of needing a separate scheduled job for this
+// slice's scale.
 // This is called fire-and-forget (`void cleanupOldBucketsOncePerInterval()`) from every rate
 // limit check, so a rejection here with nothing catching it would be an unhandled promise
 // rejection on nearly every mutating request. Catch and log instead -- a failed cleanup sweep
 // is not worth failing (or even slowing down) the request that happened to trigger it.
 async function cleanupOldBucketsOncePerInterval(): Promise<void> {
   const now = Date.now();
-  if (now - lastCleanupAt < CLEANUP_INTERVAL_MS) return;
+  if (now - lastCleanupAt < authConfig.rateLimitCleanup.intervalSeconds * 1000) return;
   lastCleanupAt = now;
 
   try {
     await db.rateLimitBucket.deleteMany({
-      where: { windowStart: { lt: new Date(now - BUCKET_RETENTION_MS) } },
+      where: { windowStart: { lt: new Date(now - authConfig.rateLimitCleanup.bucketRetentionSeconds * 1000) } },
     });
   } catch (error) {
     console.error("rate-limit bucket cleanup failed:", error);
