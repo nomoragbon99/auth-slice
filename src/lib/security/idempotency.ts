@@ -6,6 +6,10 @@ import { errorResponse } from "@/lib/http";
 
 type Handler = () => Promise<NextResponse>;
 
+// A client-supplied header used as a database primary-key component; without a cap, an
+// oversized value would sit in idempotency_keys indefinitely (up to its retention period).
+const MAX_IDEMPOTENCY_KEY_LENGTH = 128;
+
 // Runs `handler` at most once per (scope, Idempotency-Key) pair. A retried request with the
 // same key and the same body replays the first response instead of repeating the mutation;
 // the same key with a DIFFERENT body is rejected, since silently replaying the wrong response
@@ -21,6 +25,14 @@ export async function withIdempotency(
     // No key supplied: just run the handler. For this slice the unique email constraint on
     // signup is the backstop against an accidental double-submit.
     return handler();
+  }
+
+  if (key.length > MAX_IDEMPOTENCY_KEY_LENGTH) {
+    return errorResponse(
+      400,
+      "VALIDATION_ERROR",
+      `Idempotency-Key must be ${MAX_IDEMPOTENCY_KEY_LENGTH} characters or fewer.`,
+    );
   }
 
   const requestHash = createHash("sha256").update(JSON.stringify(parsedBody)).digest("hex");

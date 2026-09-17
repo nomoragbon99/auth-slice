@@ -28,7 +28,15 @@ export type SignUpInput = z.infer<typeof signUpSchema>;
 
 export const signInSchema = z.object({
   email,
-  password: z.string().min(1, "Password is required."),
+  // No minimum here (unlike the shared `password` schema): an existing account's real password
+  // is whatever it is, and the actual check is against the stored hash, not a length rule.
+  // The maximum matters regardless -- without it, a client could submit an arbitrarily long
+  // string to be argon2-hashed on every sign-in attempt, which rate limiting alone doesn't
+  // prevent (it caps how many attempts, not how expensive each one is).
+  password: z
+    .string()
+    .min(1, "Password is required.")
+    .max(authConfig.password.maxLength, `Password must be ${authConfig.password.maxLength} characters or fewer.`),
 });
 export type SignInInput = z.infer<typeof signInSchema>;
 
@@ -45,7 +53,13 @@ export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 
 export const resetPasswordSchema = z
   .object({
-    token: z.string().min(1, "Reset link is missing its token."),
+    // Real tokens are 32 random bytes, base64url-encoded (~43 characters); 128 is a generous
+    // sanity bound, not a business rule -- it exists only so an oversized value never reaches
+    // sha256Hex/the database at all, however cheap hashing it would have been.
+    token: z
+      .string()
+      .min(1, "Reset link is missing its token.")
+      .max(128, "Reset link is malformed."),
     password,
     confirmPassword: z.string(),
   })
