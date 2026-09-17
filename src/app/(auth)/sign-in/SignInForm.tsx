@@ -18,7 +18,7 @@ export function SignInForm() {
   const searchParams = useSearchParams();
   const resetSuccess = searchParams.get("reset") === "success";
 
-  const { form, formError, submit } = useAuthForm<SignInInput, SignInResponse>(signInSchema, {
+  const { form, formError, submit, pushNext } = useAuthForm<SignInInput, SignInResponse>(signInSchema, {
     email: "",
     password: "",
   });
@@ -35,12 +35,11 @@ export function SignInForm() {
     // The server's `next` already encodes verification status ("/verify-email" for an
     // unverified account) -- that always wins. Only when the server's default is the plain
     // "/dashboard" destination do we consider honouring a `?next=` from the URL, and even then
-    // only if it passes the open-redirect check.
-    const target =
-      result.data.next === "/dashboard"
-        ? getSafeRedirectPath(searchParams.get("next"), result.data.next)
-        : result.data.next;
-    router.push(target);
+    // only if it passes the open-redirect check. pushNext validates `result.data.next` is a
+    // real string before this transform ever runs.
+    pushNext(router, result.data, (next) =>
+      next === "/dashboard" ? getSafeRedirectPath(searchParams.get("next"), next) : next,
+    );
   }
 
   return (

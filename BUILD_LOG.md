@@ -64,4 +64,4 @@ Append-only. Every error, surprise or wrong assumption during the build. Raw mat
 - Investigation: found by reading both functions end-to-end while auditing for "any promise that isn't awaited or error that isn't handled" per the A1.7 review. Confirmed neither had a code path that could report or recover from a rejection.
 - Cause: both were written assuming the underlying call (`deleteMany`, `fetch`) would simply succeed; neither considered the failure path explicitly.
 - Fix: wrapped the cleanup body in try/catch with `console.error`; added a `catch` to `SignOutButton` that shows a `FormAlert`-style message ("Couldn't sign out. Check your connection and try again.") and re-enables the button.
-- Commit: (this fix commit)
+- Commit: 98e59af

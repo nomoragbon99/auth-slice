@@ -15,7 +15,7 @@ type ResendResponse = { cooldownSeconds: number };
 
 export function VerifyEmailForm({ email }: { email: string }) {
   const router = useRouter();
-  const { form, formError, submit } = useAuthForm<VerifyCodeInput, VerifyResponse>(verifyCodeSchema, {
+  const { form, formError, submit, pushNext } = useAuthForm<VerifyCodeInput, VerifyResponse>(verifyCodeSchema, {
     code: "",
   });
   const {
@@ -38,7 +38,7 @@ export function VerifyEmailForm({ email }: { email: string }) {
 
   async function onSubmit(data: VerifyCodeInput) {
     const result = await submit("/api/auth/verify-email", data);
-    if (result.ok) router.push(result.data.next);
+    if (result.ok) pushNext(router, result.data);
   }
 
   async function onResend() {

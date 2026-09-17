@@ -14,7 +14,7 @@ type ResetPasswordResponse = { next: string };
 
 export function ResetPasswordForm({ token }: { token: string }) {
   const router = useRouter();
-  const { form, formError, formErrorCode, submit } = useAuthForm<ResetPasswordInput, ResetPasswordResponse>(
+  const { form, formError, formErrorCode, submit, pushNext } = useAuthForm<ResetPasswordInput, ResetPasswordResponse>(
     resetPasswordSchema,
     { token, password: "", confirmPassword: "" },
   );
@@ -26,7 +26,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
 
   async function onSubmit(data: ResetPasswordInput) {
     const result = await submit("/api/auth/reset-password", data);
-    if (result.ok) router.push(result.data.next);
+    if (result.ok) pushNext(router, result.data);
   }
 
   const tokenInvalid = formErrorCode === "TOKEN_INVALID_OR_EXPIRED";

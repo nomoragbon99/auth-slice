@@ -1,9 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import type { useRouter } from "next/navigation";
 import { useForm, type DefaultValues, type FieldValues, type Path, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ZodType } from "zod";
+
+// Avoids importing Next's internal router-context module path directly (which has moved
+// between versions before); derives the same type from the public useRouter() hook instead.
+type Router = ReturnType<typeof useRouter>;
 
 type ErrorBody = {
   error?: { code?: string; message?: string; fields?: Record<string, string[]> };
@@ -94,5 +99,20 @@ export function useAuthForm<TInput extends FieldValues, TResponse = unknown>(
     return { ok: false, networkError: false, status: response.status };
   }
 
-  return { form, formError, formErrorCode, formSuccess, setFormSuccess, submit };
+  // Every screen navigates after success by reading a `next` field out of the response body and
+  // calling router.push(next). A 2xx response whose body failed to parse (or was otherwise
+  // malformed) would previously fall through as `{}`, making `next` `undefined` at runtime
+  // despite TypeScript believing it's a string (TResponse is asserted, not checked) --
+  // router.push(undefined) throws. This is the one place that reads `next`, so it's the one
+  // place that needs to guard it, instead of every call site repeating the same check.
+  function pushNext(router: Router, data: unknown, transform?: (next: string) => string): void {
+    const next = (data as { next?: unknown } | null)?.next;
+    if (typeof next !== "string" || next.length === 0) {
+      setFormError("Something went wrong. Please try again.");
+      return;
+    }
+    router.push(transform ? transform(next) : next);
+  }
+
+  return { form, formError, formErrorCode, formSuccess, setFormSuccess, submit, pushNext };
 }
