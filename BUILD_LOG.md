@@ -65,3 +65,10 @@ Append-only. Every error, surprise or wrong assumption during the build. Raw mat
 - Cause: both were written assuming the underlying call (`deleteMany`, `fetch`) would simply succeed; neither considered the failure path explicitly.
 - Fix: wrapped the cleanup body in try/catch with `console.error`; added a `catch` to `SignOutButton` that shows a `FormAlert`-style message ("Couldn't sign out. Check your connection and try again.") and re-enables the button.
 - Commit: 98e59af
+
+### `npm run db:studio` opened a different project's database (2026-09-17 19:43)
+- Symptom: Prisma Studio showed tables (`plan`, `creditBalance`, `Job`, `PaymentLog`, `Subscription`, `Transaction`) and bcrypt password hashes that don't exist anywhere in this project's schema.prisma -- clearly a different project's data ("Notebound").
+- Investigation: confirmed `docker-compose.yml` maps this project's Postgres to host port 5433, and `docker ps` showed a separate `notebound-postgres` container on port 5432. Confirmed `prisma.config.ts` has no hardcoded connection string -- it only reads `process.env.DATABASE_URL` via `dotenv/config`. Traced the actual cause to a `DATABASE_URL` environment variable left set at the PowerShell session level from earlier work in the Notebound project; a shell-level environment variable takes precedence over a value loaded from `.env` by `dotenv`, so Prisma silently connected to port 5432 (Notebound) instead of 5433 (this project) without any error.
+- Cause: a stale shell-level `DATABASE_URL` from another project silently overrode this project's `.env`. Not a bug in this repo -- `prisma.config.ts` reads `process.env.DATABASE_URL` exactly as designed; the environment simply had the wrong value in it from a previous, unrelated session.
+- Fix: none needed in code. The owner closed the stale terminal and opened a fresh one inside `auth-slice` with no `DATABASE_URL` preset, confirmed via `echo $env:DATABASE_URL` printing nothing.
+- Commit: (docs only, no code change)
