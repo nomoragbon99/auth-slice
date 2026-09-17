@@ -1,25 +1,21 @@
 # E1 — argon2id password hash, no plain password column
 
-Screenshot: [e1-users-hash.png](e1-users-hash.png) — Prisma Studio, `User` model, the row for
-`evidence-user@example.com` / "Evidence User", showing the full `passwordHash` starting with
-`$argon2id$`.
+Screenshot: [e1-users-hash.png](e1-users-hash.png) — a terminal screenshot of the query below,
+for the row `e4-expiry-2@example.com` / "E4 Expiry User" (the throwaway user created for E4's
+second attempt, reused here rather than creating a fresh one — its `evidence-user@example.com`
+row was already deleted in this task's cleanup before its own screenshot was taken).
 
-## Command: sign up the throwaway user
+## Query shown in the screenshot
 
+```sql
+SELECT email, name, password_hash FROM users WHERE email = 'e4-expiry-2@example.com';
 ```
-curl.exe -s -i -X POST http://localhost:3001/api/auth/signup -H "Content-Type: application/json" `
-  -H "Origin: http://localhost:3001" -H "Idempotency-Key: e1-evidence-user" `
-  -d '{"name":"Evidence User","email":"evidence-user@example.com","password":"correcthorsebattery"}'
-```
 
+Confirmed immediately before the screenshot:
 ```
-HTTP/1.1 201 Created
-vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
-content-type: application/json
-set-cookie: auth_slice_session=<REDACTED>; Path=/; Expires=Thu, 24 Sep 2026 18:08:55 GMT; HttpOnly; SameSite=lax
-Date: Thu, 17 Sep 2026 18:08:55 GMT
-
-{"user":{"name":"Evidence User","email":"evidence-user@example.com"},"next":"/verify-email"}
+          email          |      name      |     hash_prefix
+-------------------------+----------------+----------------------
+ e4-expiry-2@example.com | E4 Expiry User | $argon2id$v=19$m=194
 ```
 
 ## Command: every column on `users`, proving no plain password column exists
