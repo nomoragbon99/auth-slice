@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 
 function getFrom(): string {
-  return process.env.EMAIL_FROM ?? "Auth Slice <onboarding@resend.dev>";
+  return process.env.EMAIL_FROM || "Auth Slice <onboarding@resend.dev>";
 }
 
 async function send(to: string, subject: string, text: string): Promise<void> {
