@@ -58,3 +58,7 @@ The owner has other projects using Docker, PostgreSQL and Prisma. Never run `doc
    Never delete, merge or tidy earlier entries. Specific and honest beats polished.
 5. DECISIONS.md: whenever you choose between alternatives, append: Decision / Chosen / Rejected and why / Files.
 6. End every task with: (a) files changed, (b) how the owner can verify it manually, (c) three to five plain-language notes on the concepts involved.
+
+## Commit conventions
+- Do NOT add "Co-Authored-By: Claude" or any other AI attribution or co-author trailer to commit messages.
+- Commits are authored as the repo owner only.
