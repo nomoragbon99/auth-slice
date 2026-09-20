@@ -107,4 +107,10 @@ constraints actually fire: docs/evidence/constraints.md.
 - Rejected and why: deleting it as dead code — rejected because it isn't dead in the sense that matters: it's a diagnostic tool for the curl-based verification this project relies on throughout, even though no page's UI calls it.
 - Files: src/app/api/auth/me/route.ts
 
+### Removing AI co-author trailers from history
+- Decision: how to deal with `Co-Authored-By: Claude` trailers already present on 27 commits, and how to keep BUILD_LOG.md truthful afterwards.
+- Chosen: rewrite history with `git filter-branch --msg-filter` (messages only, trees, authors and dates unchanged, verified against a `backup/pre-rewrite` branch), then append a BUILD_LOG.md entry with a full old-to-new hash table for all 28 commits. Forbid the trailer going forward in AGENTS.md.
+- Rejected and why: (1) leaving old commits alone and only fixing future ones, because the owner wanted the existing history clean; (2) editing the stale `Commit:` hashes in earlier BUILD_LOG.md entries, because the log is append-only and silently changing it would hide that a rewrite happened; (3) an appended note with no mapping table, because a reviewer could not trace a cited hash to its current commit.
+- Files: AGENTS.md, BUILD_LOG.md
+
 ## Deliberately excluded

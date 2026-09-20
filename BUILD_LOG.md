@@ -79,3 +79,41 @@ Append-only. Every error, surprise or wrong assumption during the build. Raw mat
 - Cause: `prisma studio` picks an available port at random each time it starts (Prisma does not default to a fixed port). Two unrelated projects (`auth-slice` and Notebound) each ran their own Prisma Studio instance around the same time, and both happened to bind to the identical port (51212). Whichever server claimed that port first silently answered every request sent to it -- the browser was pointed at the correct URL the whole time, but the wrong project's server was listening behind it. This is why the extensive config/env investigation found nothing: there was nothing wrong to find in auth-slice.
 - Fix: closed Notebound's database, freeing the port; confirmed `auth-slice`'s Studio then showed the correct data. For future safety, pin this project's Studio to a fixed port (e.g. `prisma studio --port 5556`) so it can never randomly collide with another project's instance again.
 - Commit: (this commit)
+
+### Rewrote git history to strip AI co-author trailers; every commit hash changed (2026-09-20 02:43)
+- Symptom: not an error. The owner decided all commit messages should carry no `Co-Authored-By: Claude` trailer. 27 of the 28 commits had one (23 `Claude Sonnet 5`, 4 `Claude Opus 5`). The 28th, `23b0d48`, is the commit that added the no-attribution rule to AGENTS.md.
+- Investigation: counted trailers with `git log --format=%B | grep -i co-authored-by`; confirmed `origin` is `github.com/nomoragbon99/auth-slice` and the only branch is `main`; checked which other docs cite commit hashes (DECISIONS.md cites `38fcc62`, but that belongs to an older, separate draft repo and is unaffected; DOCUMENTATION.md cites none). Created `backup/pre-rewrite` at the old tip before touching anything. Ran `git filter-branch --msg-filter` deleting only lines starting `Co-Authored-By: Claude` plus any blank line left at the end of the message. Verified afterwards: `git diff backup/pre-rewrite HEAD` empty; the tree hash of every commit identical old vs new; author name, email, author date and committer date identical; subjects identical line by line; 0 trailers left in `main` (27 still in the backup branch); commit count 28 before and 28 after. A stray shell redirect I typed by mistake before the backup step failed with "No such file or directory" and did nothing.
+- Cause: rewriting a commit's message changes its hash, and every later commit's parent pointer changes with it, so ALL 28 hashes changed, including the one commit that never had a trailer.
+- Fix: the `Commit:` lines in the entries above are left exactly as written (this log is append-only), so they now cite OLD hashes. Use this table to find the current commit. Cited old hashes: `94598e4`, `92db117`, `764500d`, `60daa80`, `08ebee5`, `98e59af`, `994caa4`. Old hashes still resolve inside `backup/pre-rewrite` only.
+- Commit: (this commit). It is the first commit after the rewritten history, so it is not in the table.
+
+| # | Old hash | New hash | Subject |
+|---|----------|----------|---------|
+| 1 | `bbc0665` | `31553d0` | chore: add agent rules, build log and decisions log |
+| 2 | `72241a6` | `de89940` | chore: protect other local projects |
+| 3 | `17a4273` | `22455c4` | docs: record Node version, repo layout and branch decisions |
+| 4 | `75820ee` | `533d211` | chore: load AGENTS.md via CLAUDE.md |
+| 5 | `a3fc3ee` | `9e0383e` | chore: scaffold next.js, prisma, postgres and config |
+| 6 | `800b546` | `f2ef733` | docs: record repository decision |
+| 7 | `2abe5cd` | `6612a74` | feat(db): auth schema with constraints |
+| 8 | `94598e4` | `5017b87` | fix(docs): correct verification code hashing rationale (HMAC, not SHA-256) |
+| 9 | `92db117` | `0aef247` | feat(auth): security core (hashing, sessions, rate limiting, idempotency, validation) |
+| 10 | `764500d` | `0be21dd` | docs: log verification corrections |
+| 11 | `60daa80` | `1b2db76` | feat(auth): signup, verification, signin, signout and password reset routes |
+| 12 | `08ebee5` | `67cfb81` | feat(ui): accessible auth screens with shared validation |
+| 13 | `8a1734d` | `bf1f878` | feat(auth): protected dashboard with two-layer session check |
+| 14 | `98e59af` | `211cc67` | fix: handle cleanup and sign-out failures |
+| 15 | `bef3ace` | `ca59b93` | fix(security): only trust forwarded IP headers behind a trusted proxy |
+| 16 | `5b83be5` | `5c5c7cf` | fix(validation): bound sign-in password, reset token and idempotency key length |
+| 17 | `f9eeb7f` | `3b74af1` | refactor(config): centralise remaining tunables |
+| 18 | `b895715` | `aae30f1` | fix(ui): guard responses and add error and not-found pages |
+| 19 | `9ab566c` | `03f989e` | docs: correct stale entries and record review decisions |
+| 20 | `82dbf2e` | `9274eee` | docs: assessment evidence |
+| 21 | `994caa4` | `849acfd` | docs: note stale shell-level DATABASE_URL incident |
+| 22 | `baf2822` | `1ef7935` | docs: record Prisma Studio port collision root cause |
+| 23 | `4929a98` | `6dcf7c1` | fix(dev): pin Prisma Studio to a fixed port to prevent cross-project collisions |
+| 24 | `cc078d0` | `eb9fafd` | docs: assessment evidence screenshots |
+| 25 | `ca54e51` | `b7c9462` | docs: facts pack for documentation |
+| 26 | `8de0b99` | `1723fb6` | docs: add DOCUMENTATION.md |
+| 27 | `8acff59` | `bc646dc` | chore: remove internal facts pack (superseded by DOCUMENTATION.md) |
+| 28 | `23b0d48` | `c43bc12` | docs: forbid AI attribution trailers in commit messages |
