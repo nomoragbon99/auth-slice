@@ -114,3 +114,9 @@ constraints actually fire: docs/evidence/constraints.md.
 - Files: AGENTS.md, BUILD_LOG.md
 
 ## Deliberately excluded
+
+## `validateSession()` query strategy
+- Decision: enable Prisma's `relationJoins` preview feature and set `relationLoadStrategy: "join"` on the `findUnique` call in `validateSession()`.
+- Chosen: `relationLoadStrategy: "join"`, which makes Prisma emit one SQL query (a `LEFT JOIN LATERAL`) for the session plus its user, instead of two separate round trips.
+- Rejected and why: leaving `include` as it was, on the belief that it was already one query. It wasn't -- verified directly: without `relationJoins` enabled, `relationLoadStrategy` isn't even a valid option, and the plain `include` call logged 2 separate query events against a real session row. The original comment asserting "one query" was wrong; it's corrected in `src/lib/auth/session.ts`. Same class of bug already found and fixed in a related project (records-slice).
+- Files: prisma/schema.prisma, src/lib/auth/session.ts, BUILD_LOG.md

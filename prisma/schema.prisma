@@ -3,8 +3,12 @@
 // Prisma Client still exposes the usual camelCase field names in TypeScript.
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  // Lets a single query fetch a row together with a relation via a real SQL JOIN
+  // (relationLoadStrategy: "join"), instead of `include` silently issuing a second
+  // round trip -- see validateSession() in src/lib/auth/session.ts.
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {

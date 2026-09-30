@@ -52,10 +52,13 @@ export async function validateSession(): Promise<{ session: { id: string }; user
 
   const sessionId = sha256Hex(token);
 
-  // One query fetches the session together with the fields of its user this app is allowed
-  // to expose -- never passwordHash, never anything not listed here.
+  // `include` alone would fetch the session and its user as two separate round trips.
+  // `relationLoadStrategy: "join"` (needs the `relationJoins` preview feature in
+  // schema.prisma) makes Prisma emit one SQL JOIN instead, so this really is one query --
+  // never passwordHash, never anything not listed in `select`.
   const session = await db.session.findUnique({
     where: { id: sessionId },
+    relationLoadStrategy: "join",
     include: {
       user: {
         select: { id: true, name: true, email: true, emailVerifiedAt: true },
